@@ -36,3 +36,4 @@ export async function fetchJsonBounded<T>(url: string, options: { timeoutMs?: nu
   } finally {
     clearTimeout(timer);
   }
+}
