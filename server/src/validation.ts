@@ -77,12 +77,13 @@ export function requireGeometry(value: unknown): GeoJsonGeometry {
 export function requireBbox(value: unknown, field = 'bbox'): [number, number, number, number] {
   const parts = typeof value === 'string' ? value.split(',') : value;
   if (!Array.isArray(parts) || parts.length !== 4) throw httpError(400, `${field} must have four coordinates`);
-  const [minLon, minLat, maxLon, maxLat] = parts.map(Number);
-  if (![minLon, minLat, maxLon, maxLat].every(Number.isFinite)) throw httpError(400, `${field} must contain finite numbers`);
+  const coordinates = parts.map(Number) as [number, number, number, number];
+  const [minLon, minLat, maxLon, maxLat] = coordinates;
+  if (!coordinates.every(Number.isFinite)) throw httpError(400, `${field} must contain finite numbers`);
   if (minLon < -180 || maxLon > 180 || minLat < -90 || maxLat > 90 || minLon > maxLon || minLat > maxLat) {
     throw httpError(400, `${field} is outside valid lon/lat bounds`);
   }
-  return [minLon, minLat, maxLon, maxLat];
+  return coordinates;
 }
 
 export function validateObservation(input: unknown): NormalizedObservation {

@@ -22,11 +22,12 @@ export async function anomalyRoutes(app: FastifyInstance) {
   app.post('/internal/v1/anomalies/event-count', async (request) => {
     assertInternal(request);
     const body = (request.body ?? {}) as { bbox?: unknown; windowMinutes?: unknown; lookbackDays?: unknown; eventType?: unknown };
-    return detectEventCountAnomaly({
+    const detectorInput: Parameters<typeof detectEventCountAnomaly>[0] = {
       bbox: requireBbox(body.bbox),
-      windowMinutes: body.windowMinutes == null ? undefined : Math.trunc(finiteNumber(body.windowMinutes, 'windowMinutes', 5, 1440)),
-      lookbackDays: body.lookbackDays == null ? undefined : Math.trunc(finiteNumber(body.lookbackDays, 'lookbackDays', 7, 180)),
-      eventType: body.eventType == null ? undefined : String(body.eventType).slice(0, 64),
-    });
+    };
+    if (body.windowMinutes != null) detectorInput.windowMinutes = Math.trunc(finiteNumber(body.windowMinutes, 'windowMinutes', 5, 1440));
+    if (body.lookbackDays != null) detectorInput.lookbackDays = Math.trunc(finiteNumber(body.lookbackDays, 'lookbackDays', 7, 180));
+    if (body.eventType != null) detectorInput.eventType = String(body.eventType).slice(0, 64);
+    return detectEventCountAnomaly(detectorInput);
   });
 }
