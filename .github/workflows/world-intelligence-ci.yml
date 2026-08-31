@@ -9,8 +9,7 @@ on:
       - '.github/workflows/world-intelligence-ci.yml'
   push:
     branches:
-      - feat/world-intelligence-event-store-mvp
-      - feat/world-intelligence-ci
+      - main
 
 jobs:
   static:
