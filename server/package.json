@@ -1,0 +1,40 @@
+{
+  "name": "world-intelligence-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25 || >=26 <27"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "dev:server": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "syntax": "node --check ../commercial-clean/scripts/commercial-clean-scan.mjs && node --check ../commercial-clean/scripts/commercial-release-scan.mjs && node --check ../commercial-clean/frontend/sourceGate.js && bash -n ../apply-to-gev.sh",
+    "worker": "tsx src/worker.ts",
+    "enqueue:bootstrap": "tsx src/scripts/enqueue-bootstrap.ts",
+    "migrate": "tsx src/scripts/migrate.ts",
+    "db:migrate": "tsx src/scripts/migrate.ts",
+    "migration:dry-run": "tsx src/scripts/migrate-dry-run.ts",
+    "test": "tsx --test test/*.test.ts",
+    "test:core": "tsx --test test/*.test.ts",
+    "commercial-clean-scan": "node ../commercial-clean/scripts/commercial-clean-scan.mjs ..",
+    "commercial-release-scan": "node ../commercial-clean/scripts/commercial-release-scan.mjs ..",
+    "test:integration": "tsx --test test/integration/*.test.ts"
+  },
+  "dependencies": {
+    "bullmq": "^5.81.4",
+    "dotenv": "^16.6.1",
+    "fastify": "^5.12.1",
+    "ioredis": "^5.11.1",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
+  }
+}
