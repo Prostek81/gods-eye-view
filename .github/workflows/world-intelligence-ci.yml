@@ -1,0 +1,122 @@
+name: World Intelligence CI
+
+on:
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'db/migrations/**'
+      - 'commercial-clean/**'
+      - '.github/workflows/world-intelligence-ci.yml'
+  push:
+    branches:
+      - feat/world-intelligence-event-store-mvp
+      - feat/world-intelligence-ci
+
+jobs:
+  static:
+    name: WI / static checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Bootstrap lockfile if PR1 has none
+        id: lockfile
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+            echo "generated=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "generated=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: TypeScript compile
+        run: npm run typecheck
+      - name: Core and contract tests
+        run: npm run test:core
+      - name: Commercial clean scan
+        run: npm run commercial-clean-scan
+      - name: Syntax checks
+        run: npm run syntax
+      - name: Preserve generated lockfile
+        if: ${{ steps.lockfile.outputs.generated == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-intelligence-server-package-lock
+          path: server/package-lock.json
+          if-no-files-found: error
+
+  integration:
+    name: WI / PostGIS + Redis integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: world_intelligence
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/world_intelligence
+      REDIS_URL: redis://127.0.0.1:6379
+      INTERNAL_API_KEY: ci-internal-only
+      DATA_PROFILE: commercial_clean
+      HOST: 127.0.0.1
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Bootstrap lockfile if PR1 has none
+        id: lockfile
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+            echo "generated=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "generated=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Migration dry-run
+        run: npm run migration:dry-run
+      - name: Apply migrations
+        run: npm run migrate
+      - name: Integration tests
+        run: npm run test:integration
+
+  upstream-regression:
+    name: GEV / upstream regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
