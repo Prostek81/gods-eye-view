@@ -1,0 +1,77 @@
+{
+  "profile": "commercial-clean-v0",
+  "generated_at": "2026-08-31",
+  "disclaimer": "Operational engineering policy, not legal advice. Provider contracts/terms must be re-verified before launch.",
+  "sources": {
+    "usgs": {
+      "disposition": "allow",
+      "storage": "normalized_only",
+      "reason": "U.S. public domain per upstream GEV data-source documentation."
+    },
+    "nasa_eonet": {
+      "disposition": "allow",
+      "storage": "normalized_only",
+      "reason": "NASA event metadata; preserve source/disclaimer context."
+    },
+    "gdelt": {
+      "disposition": "allow",
+      "storage": "normalized_only",
+      "reason": "Upstream GEV documents commercial dataset use with citation; publisher content remains separate."
+    },
+    "open_meteo": {
+      "disposition": "allow_with_attribution",
+      "storage": "normalized_only",
+      "reason": "CC BY 4.0; attribution required."
+    },
+    "celestrak": {
+      "disposition": "allow_with_attribution",
+      "storage": "normalized_only",
+      "reason": "Citation requested."
+    },
+    "launch_library_2": {
+      "disposition": "allow_with_terms",
+      "storage": "normalized_only",
+      "reason": "Respect limits and add value."
+    },
+    "google_maps": {
+      "disposition": "allow_visualization_only",
+      "storage": "none",
+      "reason": "Proprietary; do not cache/store/rehost Maps Content."
+    },
+    "tomtom": {
+      "disposition": "conditional",
+      "storage": "transient_only",
+      "reason": "Enable only under appropriate plan/contract and retention terms."
+    },
+    "osm": {
+      "disposition": "conditional",
+      "storage": "normalized_only",
+      "reason": "ODbL obligations must be implemented and reviewed."
+    },
+    "adsb_lol": {
+      "disposition": "conditional",
+      "storage": "normalized_only",
+      "reason": "ODbL obligations must be implemented and reviewed."
+    },
+    "opensky": {
+      "disposition": "block_default",
+      "storage": "none",
+      "reason": "Non-commercial / separate agreement path in upstream documentation."
+    },
+    "google_news_rss": {
+      "disposition": "block_default",
+      "storage": "none",
+      "reason": "Personal/noncommercial restriction in upstream documentation."
+    },
+    "aisstream": {
+      "disposition": "dev_only",
+      "storage": "none",
+      "reason": "Upstream notes free beta / no formal ToS; do not make production dependency without agreement."
+    },
+    "telegeography_submarine_cables": {
+      "disposition": "block_and_remove",
+      "storage": "none",
+      "reason": "CC BY-NC-SA 3.0 NonCommercial bundled upstream dataset."
+    }
+  }
+}
