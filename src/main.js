@@ -23,6 +23,7 @@ import { MapStackController } from './mapStackController.js';
 import { initAnnotations } from './annotations/index.js';
 import { initLogoGaze } from './logoGaze.js';
 import { initCockpitCloudEffects } from './cockpitCloudEffects.js';
+import { initTimeMachine } from './timeMachine/index.js';
 import {
   installRenderGovernor,
   getRenderGovernorDiagnostics,
@@ -311,6 +312,14 @@ async function init() {
     // loop burning behind a hidden tab. (perf wave 2 fix)
     syncVisibilitySuspension();
 
+    const timeMachine = initTimeMachine({
+      Cesium,
+      viewer,
+      dataManager,
+      requestRender: governorRequestRender,
+      apiBase: import.meta.env.VITE_WORLD_INTELLIGENCE_API_BASE,
+    });
+
     window.__godsEyeView = {
       viewer,
       styleManager,
@@ -321,6 +330,7 @@ async function init() {
       annotations,
       weatherEffects,
       cockpitCloudEffects,
+      timeMachine,
       getRenderGovernorDiagnostics,
       requestRender: governorRequestRender,
     };
