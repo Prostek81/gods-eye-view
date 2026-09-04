@@ -2,11 +2,6 @@ name: World Intelligence CI
 
 on:
   pull_request:
-    paths:
-      - 'server/**'
-      - 'db/migrations/**'
-      - 'commercial-clean/**'
-      - '.github/workflows/world-intelligence-ci.yml'
   push:
     branches:
       - main
@@ -119,3 +114,5 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm test
+      - name: Production build
+        run: npm run build
