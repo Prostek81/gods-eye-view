@@ -1,0 +1,34 @@
+export interface TimeMachineCursor {
+  v: 1;
+  at: string;
+  severity: number;
+  observedAt: string;
+  sourceId: string;
+  sourceObjectId: string;
+}
+
+export function encodeTimeMachineCursor(cursor: TimeMachineCursor): string {
+  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
+}
+
+export function decodeTimeMachineCursor(value: string): TimeMachineCursor | null {
+  try {
+    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as Partial<TimeMachineCursor>;
+    if (parsed.v !== 1) return null;
+    if (typeof parsed.at !== 'string' || !Number.isFinite(Date.parse(parsed.at))) return null;
+    if (typeof parsed.observedAt !== 'string' || !Number.isFinite(Date.parse(parsed.observedAt))) return null;
+    if (typeof parsed.severity !== 'number' || !Number.isFinite(parsed.severity) || parsed.severity < -1 || parsed.severity > 100) return null;
+    if (typeof parsed.sourceId !== 'string' || parsed.sourceId.length < 1 || parsed.sourceId.length > 64) return null;
+    if (typeof parsed.sourceObjectId !== 'string' || parsed.sourceObjectId.length < 1 || parsed.sourceObjectId.length > 256) return null;
+    return {
+      v: 1,
+      at: new Date(parsed.at).toISOString(),
+      severity: parsed.severity,
+      observedAt: new Date(parsed.observedAt).toISOString(),
+      sourceId: parsed.sourceId,
+      sourceObjectId: parsed.sourceObjectId,
+    };
+  } catch {
+    return null;
+  }
+}

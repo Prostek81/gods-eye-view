@@ -18,10 +18,26 @@ test('all mutation routes are protected by assertInternal', async () => {
 });
 
 test('Time Machine is based on observed_at and hides future source revisions', async () => {
-  const s = await text('server/src/routes/timeline.ts');
+  const s = await text('server/src/repositories/timeMachine.ts');
   assert.match(s, /o\.observed_at <= \$2::timestamptz/);
   assert.match(s, /o\.source_revision_at IS NULL OR o\.source_revision_at <= \$2::timestamptz/);
   assert.doesNotMatch(s, /o\.received_at <= \$2::timestamptz/);
+});
+
+test('Time Machine filters are applied after latest-state selection', async () => {
+  const s = await text('server/src/repositories/timeMachine.ts');
+  assert.ok(s.indexOf('WITH latest AS') < s.indexOf('FROM latest s'));
+  assert.match(s, /FROM latest s/);
+});
+
+test('Time Machine API exposes snapshot, coverage, history and diff', async () => {
+  const s = await text('server/src/routes/timeMachine.ts');
+  for (const route of [
+    '/api/v1/time-machine',
+    '/api/v1/time-machine/coverage',
+    '/api/v1/time-machine/history',
+    '/api/v1/time-machine/diff',
+  ]) assert.ok(s.includes(route), `missing ${route}`);
 });
 
 test('persistent worker checks source policy before provider fetch', async () => {
