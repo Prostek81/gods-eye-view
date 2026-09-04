@@ -114,3 +114,5 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund
       - run: npm test
+      - name: Production build
+        run: npm run build
