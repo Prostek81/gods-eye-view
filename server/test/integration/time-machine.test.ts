@@ -7,6 +7,7 @@ import {
   queryTimeMachineCoverage,
   queryTimeMachineDiff,
   queryTimeMachineHistory,
+  queryTimeMachineReadCutoff,
   queryTimeMachineSnapshot,
 } from '../../src/repositories/timeMachine.js';
 import type { TimeMachineCursor } from '../../src/domain/timeMachineCursor.js';
@@ -49,31 +50,36 @@ after(async () => {
 });
 
 test('snapshot hides future revisions and later reveals them', async () => {
-  const beforeRevision = await queryTimeMachineSnapshot({ at: '2026-08-31T03:00:00.000Z', limit: 100 }, 'commercial_clean');
+  const readCutoff = await queryTimeMachineReadCutoff();
+  const beforeRevision = await queryTimeMachineSnapshot({ at: '2026-08-31T03:00:00.000Z', readCutoff, limit: 100 }, 'commercial_clean');
   const aBefore = beforeRevision.rows.find(row => row.source_object_id === idA);
   assert.equal(aBefore?.event_status, 'open');
   assert.equal(Number(aBefore?.severity), 60);
 
-  const afterRevision = await queryTimeMachineSnapshot({ at: '2026-08-31T05:00:00.000Z', limit: 100 }, 'commercial_clean');
+  const afterRevision = await queryTimeMachineSnapshot({ at: '2026-08-31T05:00:00.000Z', readCutoff, limit: 100 }, 'commercial_clean');
   const aAfter = afterRevision.rows.find(row => row.source_object_id === idA);
   assert.equal(aAfter?.event_status, 'closed');
   assert.equal(Number(aAfter?.severity), 55);
 });
 
-test('snapshot cursor paginates without repeating an entity', async () => {
-  const first = await queryTimeMachineSnapshot({ at: '2026-08-31T05:00:00.000Z', limit: 1 }, 'commercial_clean');
+test('snapshot cursor is stable against concurrent late-arriving ingests', async () => {
+  const at = '2026-08-31T05:00:00.000Z';
+  const readCutoff = await queryTimeMachineReadCutoff();
+  const first = await queryTimeMachineSnapshot({ at, readCutoff, limit: 1 }, 'commercial_clean');
   assert.equal(first.rows.length, 1);
   assert.equal(first.hasMore, true);
   const row = first.rows[0]!;
   const cursor: TimeMachineCursor = {
     v: 1,
-    at: '2026-08-31T05:00:00.000Z',
+    at,
+    readCutoff,
     severity: row.severity == null ? -1 : Number(row.severity),
     observedAt: new Date(row.observed_at as string | Date).toISOString(),
     sourceId: String(row.source_id),
     sourceObjectId: String(row.source_object_id),
   };
-  const second = await queryTimeMachineSnapshot({ at: cursor.at, limit: 1, cursor }, 'commercial_clean');
+  await ingest(idB, '2026-08-31T04:00:00.000Z', '2026-08-31T04:01:00.000Z', 99, 'open', 'late-after-page-one');
+  const second = await queryTimeMachineSnapshot({ at, readCutoff, limit: 1, cursor }, 'commercial_clean');
   assert.equal(second.rows.length, 1);
   assert.notEqual(second.rows[0]!.source_object_id, row.source_object_id);
 });

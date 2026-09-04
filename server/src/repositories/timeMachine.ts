@@ -11,6 +11,7 @@ export interface TimeMachineFilters {
 
 export interface SnapshotInput extends TimeMachineFilters {
   at: string;
+  readCutoff: string;
   limit: number;
   cursor?: TimeMachineCursor;
 }
@@ -53,8 +54,13 @@ const LATEST_COLUMNS = `
   o.source_quality::float8 AS source_quality, o.properties, o.license_class, o.attribution
 `;
 
+export async function queryTimeMachineReadCutoff(): Promise<string> {
+  const result = await db.query('SELECT clock_timestamp() AS now');
+  return new Date(result.rows[0].now as string | Date).toISOString();
+}
+
 export async function queryTimeMachineSnapshot(input: SnapshotInput, profile: string) {
-  const params: unknown[] = [profile, input.at];
+  const params: unknown[] = [profile, input.at, input.readCutoff];
   const filters = filterClauses('s', input, params);
   const outerClauses = [...filters];
 
@@ -80,6 +86,7 @@ export async function queryTimeMachineSnapshot(input: SnapshotInput, profile: st
       WHERE o.ingest_profile = $1
         AND o.observed_at <= $2::timestamptz
         AND (o.source_revision_at IS NULL OR o.source_revision_at <= $2::timestamptz)
+        AND o.received_at <= $3::timestamptz
       ORDER BY o.source_id, o.source_object_id, o.observed_at DESC, o.source_revision_at DESC NULLS LAST, o.received_at DESC
     )
     SELECT s.id, s.source_id, s.source_object_id, s.entity_type,

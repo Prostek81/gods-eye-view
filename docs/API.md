@@ -18,11 +18,12 @@ Responses include `provenance[]` with source ID, license class and attribution.
 
 # Time Machine API
 
-Historical reads have two clocks:
+Historical reads have two semantic clocks plus one transport-consistency boundary:
 - `observed_at`: when the real-world state was observed; this is the authoritative replay clock.
 - `source_revision_at`: when a provider revision became knowable. A snapshot at time `T` never exposes a revision with `source_revision_at > T`.
+- `read_cutoff`: a server-generated ingestion-visibility cutoff used only to keep cursor pagination stable across requests.
 
-`received_at` is operational ingestion metadata and is **never** used as the replay-selection clock.
+`received_at` is **not** the replay clock. It is used only as `received_at <= read_cutoff` while continuing a paginated snapshot, so late-arriving ingests cannot reorder or duplicate entities between pages.
 
 ## GET /api/v1/time-machine
 Authoritative point-in-time snapshot.
@@ -39,7 +40,7 @@ Optional:
 
 The server first selects the latest knowable observation for every `(source_id, source_object_id)` and **only then** applies `bbox`, `types`, and `minSeverity`. This prevents an older matching observation from being resurrected when the entity's latest state no longer matches the filter.
 
-Results are stably ordered by severity, observation time, source and source-object ID. `page.next_cursor` can be passed to the next request with the same `at`; cursors are bound to their `at` timestamp.
+The first page receives a database-generated `read_cutoff`. It is embedded into the opaque cursor and reused for every following page. Results are stably ordered by severity, observation time, source and source-object ID. `page.next_cursor` can be passed to the next request with the same `at`; cursors are bound to their `at` timestamp and ingestion cutoff.
 
 ## GET /api/v1/time-machine/coverage
 Returns the stored historical coverage available for replay:

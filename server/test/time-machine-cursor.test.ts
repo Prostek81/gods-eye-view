@@ -6,6 +6,7 @@ test('Time Machine cursor round-trips and normalizes timestamps', () => {
   const encoded = encodeTimeMachineCursor({
     v: 1,
     at: '2026-08-31T05:00:00.000Z',
+    readCutoff: '2026-09-04T07:00:00.000Z',
     severity: 75,
     observedAt: '2026-08-31T02:00:00.000Z',
     sourceId: 'usgs',
@@ -15,6 +16,7 @@ test('Time Machine cursor round-trips and normalizes timestamps', () => {
   assert.deepEqual(decoded, {
     v: 1,
     at: '2026-08-31T05:00:00.000Z',
+    readCutoff: '2026-09-04T07:00:00.000Z',
     severity: 75,
     observedAt: '2026-08-31T02:00:00.000Z',
     sourceId: 'usgs',

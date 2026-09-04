@@ -24,6 +24,11 @@ test('Time Machine is based on observed_at and hides future source revisions', a
   assert.doesNotMatch(s, /o\.received_at <= \$2::timestamptz/);
 });
 
+test('Time Machine pagination freezes ingestion visibility without changing replay clock', async () => {
+  const s = await text('server/src/repositories/timeMachine.ts');
+  assert.match(s, /o\.received_at <= \$3::timestamptz/);
+});
+
 test('Time Machine filters are applied after latest-state selection', async () => {
   const s = await text('server/src/repositories/timeMachine.ts');
   assert.ok(s.indexOf('WITH latest AS') < s.indexOf('FROM latest s'));

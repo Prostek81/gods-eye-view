@@ -5,6 +5,7 @@ import {
   queryTimeMachineCoverage,
   queryTimeMachineDiff,
   queryTimeMachineHistory,
+  queryTimeMachineReadCutoff,
   queryTimeMachineSnapshot,
 } from '../repositories/timeMachine.js';
 import {
@@ -42,9 +43,11 @@ export async function timeMachineRoutes(app: FastifyInstance) {
     const decodedCursor = q.cursor ? decodeTimeMachineCursor(q.cursor) : undefined;
     if (q.cursor && !decodedCursor) throw httpError(400, 'cursor is invalid');
     if (decodedCursor && decodedCursor.at !== at) throw httpError(400, 'cursor does not belong to this at timestamp');
+    const readCutoff = decodedCursor?.readCutoff ?? await queryTimeMachineReadCutoff();
 
     const result = await queryTimeMachineSnapshot({
       at,
+      readCutoff,
       limit,
       ...parseFilters(q),
       ...(decodedCursor ? { cursor: decodedCursor } : {}),
@@ -54,6 +57,7 @@ export async function timeMachineRoutes(app: FastifyInstance) {
     const nextCursor = result.hasMore && last ? encodeTimeMachineCursor({
       v: 1,
       at,
+      readCutoff,
       severity: last.severity == null ? -1 : Number(last.severity),
       observedAt: new Date(last.observed_at as string | Date).toISOString(),
       sourceId: String(last.source_id),
@@ -63,8 +67,10 @@ export async function timeMachineRoutes(app: FastifyInstance) {
     return {
       basis: 'observed_at',
       revision_visibility: 'source_revision_at<=at',
+      pagination_consistency: 'received_at<=read_cutoff',
       filter_stage: 'after_latest_state_selection',
       at,
+      read_cutoff: readCutoff,
       items: result.rows,
       count: result.rows.length,
       page: { has_more: result.hasMore, next_cursor: nextCursor },
