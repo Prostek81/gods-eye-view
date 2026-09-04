@@ -10,7 +10,7 @@ import {
   queryTimeMachineReadCutoff,
   queryTimeMachineSnapshot,
 } from '../../src/repositories/timeMachine.js';
-import type { TimeMachineCursor } from '../../src/domain/timeMachineCursor.js';
+import { timeMachineFilterKey, type TimeMachineCursor } from '../../src/domain/timeMachineCursor.js';
 
 const idA = `tm-a-${Date.now()}`;
 const idB = `tm-b-${Date.now()}`;
@@ -65,7 +65,8 @@ test('snapshot hides future revisions and later reveals them', async () => {
 test('snapshot cursor is stable against concurrent late-arriving ingests', async () => {
   const at = '2026-08-31T05:00:00.000Z';
   const readCutoff = await queryTimeMachineReadCutoff();
-  const first = await queryTimeMachineSnapshot({ at, readCutoff, limit: 1 }, 'commercial_clean');
+  const filters = { eventTypes: ['earthquake'] };
+  const first = await queryTimeMachineSnapshot({ at, readCutoff, limit: 1, ...filters }, 'commercial_clean');
   assert.equal(first.rows.length, 1);
   assert.equal(first.hasMore, true);
   const row = first.rows[0]!;
@@ -73,13 +74,14 @@ test('snapshot cursor is stable against concurrent late-arriving ingests', async
     v: 1,
     at,
     readCutoff,
+    filterKey: timeMachineFilterKey(filters),
     severity: row.severity == null ? -1 : Number(row.severity),
     observedAt: new Date(row.observed_at as string | Date).toISOString(),
     sourceId: String(row.source_id),
     sourceObjectId: String(row.source_object_id),
   };
   await ingest(idB, '2026-08-31T04:00:00.000Z', '2026-08-31T04:01:00.000Z', 99, 'open', 'late-after-page-one');
-  const second = await queryTimeMachineSnapshot({ at, readCutoff, limit: 1, cursor }, 'commercial_clean');
+  const second = await queryTimeMachineSnapshot({ at, readCutoff, limit: 1, cursor, ...filters }, 'commercial_clean');
   assert.equal(second.rows.length, 1);
   assert.notEqual(second.rows[0]!.source_object_id, row.source_object_id);
 });
