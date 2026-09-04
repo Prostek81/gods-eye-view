@@ -13,6 +13,16 @@ export function requireUuid(value: unknown, field = 'id'): string {
   return value;
 }
 
+export function requireSourceId(value: unknown, field = 'sourceId'): string {
+  if (typeof value !== 'string' || !/^[a-z0-9_.-]{1,64}$/i.test(value)) throw httpError(400, `${field} is invalid`);
+  return value;
+}
+
+export function requireSourceObjectId(value: unknown, field = 'sourceObjectId'): string {
+  if (typeof value !== 'string' || value.length < 1 || value.length > 256) throw httpError(400, `${field} is invalid`);
+  return value;
+}
+
 export function requireIsoTimestamp(value: unknown, field: string): string {
   if (typeof value !== 'string' || !value.trim() || !Number.isFinite(Date.parse(value))) {
     throw httpError(400, `${field} must be an ISO timestamp`);
@@ -89,8 +99,8 @@ export function requireBbox(value: unknown, field = 'bbox'): [number, number, nu
 export function validateObservation(input: unknown): NormalizedObservation {
   if (!input || typeof input !== 'object') throw httpError(400, 'invalid_observation');
   const body = input as Partial<NormalizedObservation>;
-  if (typeof body.sourceId !== 'string' || !/^[a-z0-9_.-]{1,64}$/i.test(body.sourceId)) throw httpError(400, 'sourceId is invalid');
-  if (typeof body.sourceObjectId !== 'string' || body.sourceObjectId.length < 1 || body.sourceObjectId.length > 256) throw httpError(400, 'sourceObjectId is invalid');
+  const sourceId = requireSourceId(body.sourceId, 'sourceId');
+  const sourceObjectId = requireSourceObjectId(body.sourceObjectId, 'sourceObjectId');
   if (typeof body.entityType !== 'string' || !/^[a-z0-9_.-]{1,64}$/i.test(body.entityType)) throw httpError(400, 'entityType is invalid');
   const observedAt = requireIsoTimestamp(body.observedAt, 'observedAt');
   const sourceRevisionAt = optionalIsoTimestamp(body.sourceRevisionAt, 'sourceRevisionAt');
@@ -103,8 +113,8 @@ export function validateObservation(input: unknown): NormalizedObservation {
   if (body.eventTitle != null && (typeof body.eventTitle !== 'string' || body.eventTitle.length > 500)) throw httpError(400, 'eventTitle is invalid');
   if (!body.properties || typeof body.properties !== 'object' || Array.isArray(body.properties)) throw httpError(400, 'properties must be an object');
   return {
-    sourceId: body.sourceId,
-    sourceObjectId: body.sourceObjectId,
+    sourceId,
+    sourceObjectId,
     entityType: body.entityType,
     geometry: requireGeometry(body.geometry),
     altitudeM: body.altitudeM == null ? undefined : finiteNumber(body.altitudeM, 'altitudeM'),

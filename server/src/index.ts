@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { db } from './db.js';
 import { eventsRoutes } from './routes/events.js';
 import { timelineRoutes } from './routes/timeline.js';
+import { timeMachineRoutes } from './routes/timeMachine.js';
 import { assetsRoutes } from './routes/assets.js';
 import { anomalyRoutes } from './routes/anomalies.js';
 import { internalRoutes } from './routes/internal.js';
@@ -44,6 +45,7 @@ app.get('/health', async () => {
 
 await app.register(eventsRoutes);
 await app.register(timelineRoutes);
+await app.register(timeMachineRoutes);
 await app.register(assetsRoutes);
 await app.register(anomalyRoutes);
 await app.register(watchlistRoutes);

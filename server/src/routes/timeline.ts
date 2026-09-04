@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { db } from '../db.js';
 import { config } from '../config.js';
-import { finiteNumber, httpError, requireBbox, requireIsoTimestamp } from '../validation.js';
+import { httpError, requireBbox, requireIsoTimestamp } from '../validation.js';
 
 const BUCKETS = new Set(['5m','15m','1h','6h','1d']);
 const BUCKET_SQL: Record<string, string> = {
@@ -58,44 +58,5 @@ export async function timelineRoutes(app: FastifyInstance) {
       ORDER BY f.bucket ASC
     `, params);
     return { basis: 'observed_at', bucket, from, to, items: result.rows };
-  });
-
-  app.get('/api/v1/time-machine', async (request) => {
-    const q = request.query as Record<string, string | undefined>;
-    if (!q.at) throw httpError(400, 'at is required');
-    const at = requireIsoTimestamp(q.at, 'at');
-    const params: unknown[] = [config.dataProfile, at];
-    const clauses = [
-      `o.ingest_profile = $1`,
-      `o.observed_at <= $2::timestamptz`,
-      `(o.source_revision_at IS NULL OR o.source_revision_at <= $2::timestamptz)`,
-    ];
-    const add = (value: unknown) => { params.push(value); return `$${params.length}`; };
-    if (q.bbox) {
-      const [minLon, minLat, maxLon, maxLat] = requireBbox(q.bbox);
-      clauses.push(`ST_Intersects(o.geom, ST_MakeEnvelope(${add(minLon)},${add(minLat)},${add(maxLon)},${add(maxLat)},4326))`);
-    }
-    const types = q.types?.split(',').map(v => v.trim()).filter(Boolean).slice(0, 50);
-    if (types?.length) clauses.push(`o.entity_type = ANY(${add(types)}::text[])`);
-    const limit = q.limit == null ? 1000 : Math.trunc(finiteNumber(q.limit, 'limit', 1, 5000));
-    params.push(limit);
-    const limitParam = `$${params.length}`;
-
-    const result = await db.query(`
-      SELECT * FROM (
-        SELECT DISTINCT ON (o.source_id, o.source_object_id)
-          o.id, o.source_id, o.source_object_id, o.entity_type,
-          ST_AsGeoJSON(o.geom)::json AS geometry, o.altitude_m,
-          o.observed_at, o.source_revision_at, o.received_at,
-          o.severity, o.event_status, o.title, o.confidence, o.source_quality,
-          o.properties, o.license_class, o.attribution
-        FROM observations o
-        WHERE ${clauses.join(' AND ')}
-        ORDER BY o.source_id, o.source_object_id, o.observed_at DESC, o.source_revision_at DESC NULLS LAST, o.received_at DESC
-      ) snapshot
-      ORDER BY severity DESC, observed_at DESC
-      LIMIT ${limitParam}
-    `, params);
-    return { basis: 'observed_at', revision_visibility: 'source_revision_at<=at', at, items: result.rows, count: result.rowCount ?? 0 };
   });
 }

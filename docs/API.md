@@ -1,4 +1,4 @@
-# API contract v0
+# API contract v1
 
 ## Provenance invariant
 Every persisted observation has canonical source provenance copied from the `sources` registry: `license_class`, `attribution`, and `ingest_profile`. Clients must not infer licensing from provider names.
@@ -16,13 +16,76 @@ Parameters:
 
 Responses include `provenance[]` with source ID, license class and attribution.
 
+# Time Machine API
+
+Historical reads have two semantic clocks plus one transport-consistency boundary:
+- `observed_at`: when the real-world state was observed; this is the authoritative replay clock.
+- `source_revision_at`: when a provider revision became knowable. A snapshot at time `T` never exposes a revision with `source_revision_at > T`.
+- `read_cutoff`: a server-generated ingestion-visibility cutoff used only to keep cursor pagination stable across requests.
+
+`received_at` is **not** the replay clock. It is used only as `received_at <= read_cutoff` while continuing a paginated snapshot, so late-arriving ingests cannot reorder or duplicate entities between pages.
+
 ## GET /api/v1/time-machine
-Authoritative point-in-time snapshot endpoint. **Selection is based on `observed_at`, never `received_at`.**
+Authoritative point-in-time snapshot.
 
-Required: `at=<ISO>`.
-Optional: `bbox`, `types`, `limit=1..5000`.
+Required:
+- `at=<ISO>`
 
-For each `(source_id, source_object_id)`, returns the latest observation whose `observed_at <= at`, preferring the latest source revision when observations share an observation timestamp. Each item includes `observed_at`, `source_revision_at`, `received_at`, severity/status/title and provenance.
+Optional:
+- `bbox=minLon,minLat,maxLon,maxLat`
+- `types=earthquake,wildfires,...`
+- `minSeverity=0..100`
+- `limit=1..5000`
+- `cursor=<opaque>`
+
+The server first selects the latest knowable observation for every `(source_id, source_object_id)` and **only then** applies `bbox`, `types`, and `minSeverity`. This prevents an older matching observation from being resurrected when the entity's latest state no longer matches the filter.
+
+The first page receives a database-generated `read_cutoff`. It is embedded into the opaque cursor and reused for every following page. Results are stably ordered by severity, observation time, source and source-object ID. `page.next_cursor` can be passed to the next request with the same `at`; cursors are bound to their `at` timestamp and ingestion cutoff.
+
+## GET /api/v1/time-machine/coverage
+Returns the stored historical coverage available for replay:
+- `min_observed_at`
+- `max_observed_at`
+- `observation_count`
+- `distinct_entity_count`
+- `by_source`
+- `by_type`
+
+Optional filters: `bbox`, `types`, `minSeverity`.
+
+## GET /api/v1/time-machine/history
+Returns the ordered observation/revision history for one source entity.
+
+Required:
+- `sourceId`
+- `sourceObjectId`
+
+Optional:
+- `from`, `to`: observation-time range
+- `asOf`: knowledge cutoff; hides source revisions newer than `asOf`
+- `limit=1..5000`
+
+This endpoint is intended for entity replay/trails and audit inspection.
+
+## GET /api/v1/time-machine/diff
+Compares two authoritative snapshots and returns only changed membership/state.
+
+Required:
+- `from=<ISO>`
+- `to=<ISO>` with `from < to`
+
+Optional:
+- `bbox`
+- `types`
+- `minSeverity`
+- `limit=1..5000`
+
+`change_type` values:
+- `entered`: entity is in the filtered `to` snapshot but not the filtered `from` snapshot
+- `exited`: entity is in the filtered `from` snapshot but not the filtered `to` snapshot
+- `changed`: entity exists in both but its selected observation/revision changed
+
+Each row contains `from_state` and `to_state` with provenance and temporal metadata.
 
 ## GET /api/v1/timeline
 Required: `from`, `to`. Optional: `bbox`, `bucket=5m|15m|1h|6h|1d`.
