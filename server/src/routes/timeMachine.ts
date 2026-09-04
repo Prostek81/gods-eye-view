@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config.js';
-import { decodeTimeMachineCursor, encodeTimeMachineCursor } from '../domain/timeMachineCursor.js';
+import { decodeTimeMachineCursor, encodeTimeMachineCursor, timeMachineFilterKey } from '../domain/timeMachineCursor.js';
 import {
   queryTimeMachineCoverage,
   queryTimeMachineDiff,
@@ -20,7 +20,8 @@ import {
 
 function parseTypes(value: string | undefined): string[] | undefined {
   const values = value?.split(',').map(v => v.trim()).filter(Boolean).slice(0, 50);
-  return values?.length ? values : undefined;
+  if (!values?.length) return undefined;
+  return [...new Set(values)].sort();
 }
 
 function parseFilters(q: Record<string, string | undefined>) {
@@ -40,16 +41,19 @@ export async function timeMachineRoutes(app: FastifyInstance) {
     if (!q.at) throw httpError(400, 'at is required');
     const at = requireIsoTimestamp(q.at, 'at');
     const limit = q.limit == null ? 1000 : Math.trunc(finiteNumber(q.limit, 'limit', 1, 5000));
+    const filters = parseFilters(q);
+    const filterKey = timeMachineFilterKey(filters);
     const decodedCursor = q.cursor ? decodeTimeMachineCursor(q.cursor) : undefined;
     if (q.cursor && !decodedCursor) throw httpError(400, 'cursor is invalid');
     if (decodedCursor && decodedCursor.at !== at) throw httpError(400, 'cursor does not belong to this at timestamp');
+    if (decodedCursor && decodedCursor.filterKey !== filterKey) throw httpError(400, 'cursor does not belong to these filters');
     const readCutoff = decodedCursor?.readCutoff ?? await queryTimeMachineReadCutoff();
 
     const result = await queryTimeMachineSnapshot({
       at,
       readCutoff,
       limit,
-      ...parseFilters(q),
+      ...filters,
       ...(decodedCursor ? { cursor: decodedCursor } : {}),
     }, config.dataProfile);
 
@@ -58,6 +62,7 @@ export async function timeMachineRoutes(app: FastifyInstance) {
       v: 1,
       at,
       readCutoff,
+      filterKey,
       severity: last.severity == null ? -1 : Number(last.severity),
       observedAt: new Date(last.observed_at as string | Date).toISOString(),
       sourceId: String(last.source_id),
@@ -68,6 +73,7 @@ export async function timeMachineRoutes(app: FastifyInstance) {
       basis: 'observed_at',
       revision_visibility: 'source_revision_at<=at',
       pagination_consistency: 'received_at<=read_cutoff',
+      cursor_binding: 'at+normalized_filters+read_cutoff',
       filter_stage: 'after_latest_state_selection',
       at,
       read_cutoff: readCutoff,
